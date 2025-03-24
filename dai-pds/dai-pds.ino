@@ -1,12 +1,9 @@
 #include "dai-pds-secret.h"
+#include "dai-pds.h"
 #include <Arduino.h>
 #include <FirebaseClient.h>
 #include <TimeLib.h>
 #include "ExampleFunctions.h" // Utility functions from FirebaseClient.
-
-#define PIR_PIN 14
-
-void show_status(const String &name);
 
 ServiceAuth sa_auth(FIREBASE_CLIENT_EMAIL, FIREBASE_PROJECT_ID, PRIVATE_KEY, 3000);
 
@@ -22,12 +19,8 @@ AsyncClient aClient(ssl_client);
 
 bool initTaskDone = false;
 
-void setup()
+void connectWiFi()
 {
-  pinMode(PIR_PIN, INPUT);
-
-  Serial.begin(115200);
-  delay(1000);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to Wi-Fi");
@@ -37,18 +30,19 @@ void setup()
   {
     rgbLedWrite(RGB_BUILTIN, 0, 0, 255);
     Serial.print(".");
-    delay(300);
+    delay(150);
     rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
+    delay(150);
   }
-
-  // Solid yellow till ready.
-  rgbLedWrite(RGB_BUILTIN, 255, 255, 0);
 
   Serial.println();
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
   Serial.println();
+}
 
+void initializeFirebase()
+{
   Firebase.printf("Firebase Client v%s\n", FIREBASE_CLIENT_VERSION);
 
   set_ssl_client_insecure_and_buffer(ssl_client);
@@ -64,6 +58,29 @@ void setup()
   Database.url(DATABASE_URL);
 }
 
+void getTimeString(char *buf, size_t len)
+{
+  time_t now = get_ntp_time();
+  snprintf(buf, len, "%4d-%02d-%02d %02d:%02d:%02d", year(now), month(now), day(now), hour(now), minute(now), second(now));
+}
+
+void setup()
+{
+  pinMode(PIR_PIN, INPUT);
+  pinMode(TONE_PIN, OUTPUT);
+
+  Serial.begin(115200);
+  delay(1000);
+
+  connectWiFi();
+
+  // Solid yellow till ready.
+  rgbLedWrite(RGB_BUILTIN, 255, 255, 0);
+  delay(150);
+
+  initializeFirebase();
+}
+
 void loop()
 {
   // To maintain the authentication and async tasks.
@@ -77,10 +94,9 @@ void loop()
   {
     initTaskDone = true;
     Serial.println("Notifying server of startup...");
-    char startBuf[32];
-    time_t now = get_ntp_time();
-    snprintf(startBuf, 32, "Started: %4d-%02d-%02d %02d:%02d:%02d", year(now), month(now), day(now), hour(now), minute(now), second(now));
-    String name = Database.push<String>(aClient, "/debug", String(startBuf));
+    char timeBuf[32];
+    getTimeString(timeBuf, sizeof(timeBuf));
+    String name = Database.push<String>(aClient, "/debug", "Started: " + String(timeBuf));
     show_status(name);
     print_token_type(app);
 
@@ -93,10 +109,16 @@ void loop()
   if (hasMotion)
   {
     rgbLedWrite(RGB_BUILTIN, 255, 0, 255);
+    tone(TONE_PIN, 262, 0.5);
+    char timeBuf[32];
+    getTimeString(timeBuf, sizeof(timeBuf));
+    String name = Database.push<String>(aClient, "/visitors", "Visitor at: " + String(startBuf));
+    show_status(name);
   }
   else
   {
     rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
+    noTone(TONE_PIN);
   }
 }
 
