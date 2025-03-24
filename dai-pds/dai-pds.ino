@@ -64,6 +64,21 @@ void getTimeString(char *buf, size_t len)
   snprintf(buf, len, "%4d-%02d-%02d %02d:%02d:%02d", year(now), month(now), day(now), hour(now), minute(now), second(now));
 }
 
+void playAudio()
+{
+  rgbLedWrite(RGB_BUILTIN, 255, 0, 255);
+  int length = Database.get<int>(aClient, "/song/length");
+  for (int i = 0; i < length; i++)
+  {
+    int note = Database.get<int>(aClient, "/song/" + String(i));
+    if (note == 0)
+      noTone(TONE_PIN);
+    else
+      tone(TONE_PIN, note, TONE_DELAY);
+    delay(TONE_DELAY);
+  }
+}
+
 void setup()
 {
   pinMode(PIR_PIN, INPUT);
@@ -104,22 +119,17 @@ void loop()
     rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
   }
 
+  rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
   auto hasMotion = digitalRead(PIR_PIN);
-  Serial.println("PIR: " + String(hasMotion));
   if (hasMotion)
   {
-    rgbLedWrite(RGB_BUILTIN, 255, 0, 255);
-    tone(TONE_PIN, 262, 0.5);
     char timeBuf[32];
     getTimeString(timeBuf, sizeof(timeBuf));
-    String name = Database.push<String>(aClient, "/visitors", "Visitor at: " + String(startBuf));
+    String name = Database.push<String>(aClient, "/visitors", "Visitor at: " + String(timeBuf));
     show_status(name);
+    playAudio();
   }
-  else
-  {
-    rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
-    noTone(TONE_PIN);
-  }
+  delay(LOOP_DELAY);
 }
 
 void show_status(const String &name)

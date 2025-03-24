@@ -20,7 +20,9 @@ export function AudioInput() {
       return;
     }
     const songRef = ref(db, "/song");
+    const lengthRef = ref(db, "/song/length");
     set(songRef, list)
+      .then(() => set(lengthRef, list.length))
       .then(() => {
         toast.success("Audio tones updated");
       })
