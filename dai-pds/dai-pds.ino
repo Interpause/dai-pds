@@ -4,6 +4,8 @@
 #include <TimeLib.h>
 #include "ExampleFunctions.h" // Utility functions from FirebaseClient.
 
+#define PIR_PIN 14
+
 void show_status(const String &name);
 
 ServiceAuth sa_auth(FIREBASE_CLIENT_EMAIL, FIREBASE_PROJECT_ID, PRIVATE_KEY, 3000);
@@ -22,16 +24,26 @@ bool initTaskDone = false;
 
 void setup()
 {
+  pinMode(PIR_PIN, INPUT);
+
   Serial.begin(115200);
   delay(1000);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to Wi-Fi");
+
+  // Blink blue while connecting.
   while (WiFi.status() != WL_CONNECTED)
   {
+    rgbLedWrite(RGB_BUILTIN, 0, 0, 255);
     Serial.print(".");
     delay(300);
+    rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
   }
+
+  // Solid yellow till ready.
+  rgbLedWrite(RGB_BUILTIN, 255, 255, 0);
+
   Serial.println();
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
@@ -71,6 +83,20 @@ void loop()
     String name = Database.push<String>(aClient, "/debug", String(startBuf));
     show_status(name);
     print_token_type(app);
+
+    // Green to signify ready.
+    rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
+  }
+
+  auto hasMotion = digitalRead(PIR_PIN);
+  Serial.println("PIR: " + String(hasMotion));
+  if (hasMotion)
+  {
+    rgbLedWrite(RGB_BUILTIN, 255, 0, 255);
+  }
+  else
+  {
+    rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
   }
 }
 
